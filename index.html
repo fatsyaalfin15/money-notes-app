@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Money Notes Apps</title>
+    <link rel="icon" type="image/png" href="public/money.jfif">
+    <script>
+        if (!localStorage.getItem('money-notes-current-user')) {
+            window.location.href = 'login.html';
+        }
+    </script>
+    <link rel="stylesheet" href="styles/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <h1>💰 Money Notes</h1>
+            </div>
+            <div class="header-right">
+                <span id="user-greeting" class="user-greeting">Halo, User!</span>
+                <button id="logout-btn" class="btn btn-outline">Keluar</button>
+                <button id="dark-mode-toggle" class="btn btn-icon">
+                    <span id="dark-mode-icon">🌙</span>
+                </button>
+            </div>
+        </header>
+
+        <nav class="main-nav">
+            <button id="nav-main-btn" class="nav-btn active">Dashboard</button>
+            <button id="nav-history-btn" class="nav-btn">Riwayat</button>
+        </nav>
+
+        <div id="period-summary" class="period-summary"></div>
+
+        <div id="main-view" class="view">
+            <div class="dashboard">
+                <div class="card income">
+                    <div class="card-icon">💰</div>
+                    <div>
+                        <h2>Total Pemasukan</h2>
+                        <p id="total-pemasukan">Rp 0</p>
+                    </div>
+                </div>
+                <div class="card expense">
+                    <div class="card-icon">💸</div>
+                    <div>
+                        <h2>Total Pengeluaran</h2>
+                        <p id="total-pengeluaran">Rp 0</p>
+                    </div>
+                </div>
+                <div class="card balance">
+                    <div class="card-icon">📊</div>
+                    <div>
+                        <h2>Saldo Akhir</h2>
+                        <p id="saldo-akhir">Rp 0</p>
+                    </div>
+                </div>
+            </div>
+
+            <main>
+                <div class="form-container">
+                    <h2 id="form-title">Tambah Transaksi Baru</h2>
+                    <form id="transaction-form">
+                        <input type="hidden" id="transaction-id" name="id">
+                        <div class="form-grid">
+                            <div class="form-control">
+                                <label for="tanggal">Tanggal</label>
+                                <input type="date" id="tanggal" name="tanggal" required>
+                                <span class="error" id="error-tanggal"></span>
+                            </div>
+                            <div class="form-control">
+                                <label for="kategori">Kategori</label>
+                                <div class="category-input">
+                                    <select id="kategori" name="kategori" required>
+                                        <option value="" disabled selected>-- Pilih atau Tambah --</option>
+                                    </select>
+                                    <button type="button" id="add-category-btn" class="add-category-btn">+</button>
+                                </div>
+                                <span class="error" id="error-kategori"></span>
+                            </div>
+                            <div class="form-control">
+                                <label for="jenis">Jenis Transaksi</label>
+                                <select id="jenis" name="jenis" required>
+                                    <option value="" disabled selected>-- Pilih Jenis --</option>
+                                    <option value="pemasukan">Pemasukan</option>
+                                    <option value="pengeluaran">Pengeluaran</option>
+                                </select>
+                                <span class="error" id="error-jenis"></span>
+                            </div>
+                            <div class="form-control">
+                                <label for="nominal">Nominal</label>
+                                <input type="text" id="nominal" name="nominal" placeholder="Contoh: 50000" required>
+                                <span class="error" id="error-nominal"></span>
+                            </div>
+                        </div>
+                        <div class="form-control">
+                            <label for="catatan">Catatan (Opsional)</label>
+                            <textarea id="catatan" name="catatan" rows="2" placeholder="Contoh: Beli makan siang"></textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary" id="submit-btn">Simpan Transaksi</button>
+                            <button type="button" id="cancel-edit-btn" class="btn btn-secondary" style="display: none;">Batal</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="history-container">
+                    <div class="history-header">
+                        <h2>Riwayat Transaksi</h2>
+                        <button id="export-btn" class="btn btn-outline">Ekspor CSV</button>
+                    </div>
+                    <div class="filter-container">
+                        <div class="search-box">
+                            <span>🔍</span>
+                            <input type="text" id="filter-keyword" placeholder="Cari kategori atau catatan...">
+                        </div>
+                        <select id="filter-jenis">
+                            <option value="all">Semua Jenis</option>
+                            <option value="pemasukan">Pemasukan</option>
+                            <option value="pengeluaran">Pengeluaran</option>
+                        </select>
+                    </div>
+                    <div class="bulk-actions" id="bulk-actions-main" style="display: none;">
+                        <button id="select-all-main-btn" class="btn btn-secondary">Pilih Semua</button>
+                        <button id="delete-selected-main-btn" class="btn btn-danger">Hapus yang Dipilih</button>
+                        <span id="selected-count-main">0 dipilih</span>
+                    </div>
+                    <div id="transaction-list"></div>
+                </div>
+            </main>
+        </div>
+        
+        <div id="history-view" class="view" style="display: none;">
+            <div class="history-by-date-container">
+                <div class="history-header">
+                    <h2>Riwayat Berdasarkan Tanggal</h2>
+                    <button id="export-btn-2" class="btn btn-outline">Ekspor CSV</button>
+                </div>
+                <div class="bulk-actions" id="bulk-actions-history" style="display: none;">
+                    <button id="select-all-history-btn" class="btn btn-secondary">Pilih Semua</button>
+                    <button id="delete-selected-history-btn" class="btn btn-danger">Hapus yang Dipilih</button>
+                    <span id="selected-count-history">0 dipilih</span>
+                </div>
+                <div id="history-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Tambah Kategori -->
+    <div id="category-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Tambah Kategori Baru</h3>
+            <div class="form-control">
+                <input type="text" id="new-category" placeholder="Contoh: Belanja Online" maxlength="30" required>
+                <span class="error" id="error-new-category"></span>
+            </div>
+            <div class="modal-actions">
+                <button id="modal-cancel-category" class="btn btn-secondary">Batal</button>
+                <button id="modal-save-category" class="btn btn-primary">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Hapus -->
+    <div id="delete-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Konfirmasi Hapus</h3>
+            <p>Anda yakin ingin menghapus transaksi ini?</p>
+            <div class="modal-actions">
+                <button id="modal-cancel-btn" class="btn btn-secondary">Batal</button>
+                <button id="modal-confirm-btn" class="btn btn-danger">Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Selamat Datang -->
+    <div id="welcome-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Selamat Datang di Money Notes!</h3>
+            <p>Aplikasi catatan keuangan pribadi yang simpel dan modern.</p>
+            <div class="modal-actions">
+                <button id="welcome-ok-btn" class="btn btn-primary">Mengerti</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/state.js" type="module"></script>
+    <script src="js/main.js" type="module"></script>
+</body>
+</html>
