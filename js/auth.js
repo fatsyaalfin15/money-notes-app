@@ -14,8 +14,14 @@ function isEmailExists(email) {
     return getUsers().some(user => user.email === email.toLowerCase());
 }
 
+// ✅ DIPERBAIKI: Redirect ke main.html
 function redirectToMain() {
     window.location.href = 'main.html';
+}
+
+// ✅ DIPERBAIKI: Redirect ke index.html (halaman login)
+function redirectToLogin() {
+    window.location.href = 'index.html';
 }
 
 function isValidEmail(email) {
@@ -71,7 +77,7 @@ document.getElementById('register-form')?.addEventListener('submit', function(e)
         });
         saveUsers(users);
         alert('Pendaftaran berhasil! Silakan login.');
-        window.location.href = 'login.html';
+        redirectToLogin(); // ✅ INI YANG DIPERBAIKI!
     }
 });
 
@@ -112,7 +118,7 @@ document.getElementById('login-form')?.addEventListener('submit', function(e) {
                 name: user.name,
                 email: user.email
             }));
-            redirectToMain();
+            redirectToMain(); // ✅ Redirect ke main.html
         } else {
             document.getElementById('error-password').textContent = 'Email atau kata sandi salah';
         }
