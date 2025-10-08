@@ -9,8 +9,16 @@
         if (!localStorage.getItem('money-notes-current-user')) {
             window.location.href = 'index.html';
         }
+        if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (let registration of registrations) {
+            registration.unregister();
+        }
+    });
+}
     </script>
     <link rel="stylesheet" href="styles/style.css">
+    
 </head>
 <body>
     <div class="container">
@@ -106,29 +114,23 @@
                     </form>
                 </div>
 
-                <div class="history-container">
-                    <div class="history-header">
-                        <h2>Riwayat Transaksi</h2>
-                        <button id="export-btn" class="btn btn-outline">Ekspor CSV</button>
-                    </div>
-                    <div class="filter-container">
-                        <div class="search-box">
-                            <span>🔍</span>
-                            <input type="text" id="filter-keyword" placeholder="Cari kategori atau catatan...">
-                        </div>
-                        <select id="filter-jenis">
-                            <option value="all">Semua Jenis</option>
-                            <option value="pemasukan">Pemasukan</option>
-                            <option value="pengeluaran">Pengeluaran</option>
-                        </select>
-                    </div>
-                    <div class="bulk-actions" id="bulk-actions-main" style="display: none;">
-                        <button id="select-all-main-btn" class="btn btn-secondary">Pilih Semua</button>
-                        <button id="delete-selected-main-btn" class="btn btn-danger">Hapus yang Dipilih</button>
-                        <span id="selected-count-main">0 dipilih</span>
-                    </div>
-                    <div id="transaction-list"></div>
+                <!-- Konten yang sebelumnya di dalam history-container dipindahkan ke sini -->
+                <div class="history-header">
+                    <h2>Riwayat Transaksi</h2>
+                    <button id="export-btn" class="btn btn-outline">Ekspor CSV</button>
                 </div>
+                <div class="filter-container">
+                    <div class="search-box">
+                        <span>🔍</span>
+                        <input type="text" id="filter-keyword" placeholder="Cari kategori atau catatan...">
+                    </div>
+                    <select id="filter-jenis">
+                        <option value="all">Semua Jenis</option>
+                        <option value="pemasukan">Pemasukan</option>
+                        <option value="pengeluaran">Pengeluaran</option>
+                    </select>
+                </div>
+                <div id="transaction-list"></div>
             </main>
         </div>
         
@@ -137,11 +139,6 @@
                 <div class="history-header">
                     <h2>Riwayat Berdasarkan Tanggal</h2>
                     <button id="export-btn-2" class="btn btn-outline">Ekspor CSV</button>
-                </div>
-                <div class="bulk-actions" id="bulk-actions-history" style="display: none;">
-                    <button id="select-all-history-btn" class="btn btn-secondary">Pilih Semua</button>
-                    <button id="delete-selected-history-btn" class="btn btn-danger">Hapus yang Dipilih</button>
-                    <span id="selected-count-history">0 dipilih</span>
                 </div>
                 <div id="history-list"></div>
             </div>
@@ -186,7 +183,6 @@
         </div>
     </div>
 
-    <script src="js/state.js" type="module"></script>
     <script src="js/main.js" type="module"></script>
 </body>
 </html>
