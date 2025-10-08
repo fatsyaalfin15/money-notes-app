@@ -39,7 +39,8 @@ function showNotification(message, type = 'success') {
 function initDarkMode() {
     const savedTheme = localStorage.getItem('money-notes-theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
-    document.getElementById('dark-mode-icon').textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+    const dmIcon = document.getElementById('dark-mode-icon');
+    if (dmIcon) dmIcon.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
 }
 
 function toggleDarkMode() {
@@ -47,7 +48,8 @@ function toggleDarkMode() {
     const newTheme = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('money-notes-theme', newTheme);
-    document.getElementById('dark-mode-icon').textContent = newTheme === 'dark' ? '☀️' : '🌙';
+    const dmIcon = document.getElementById('dark-mode-icon');
+    if (dmIcon) dmIcon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
 }
 
 // Logout
@@ -68,131 +70,114 @@ function scrollToForm() {
 
 function refreshUI() {
     const transactions = state.getTransactions();
-    const keyword = document.getElementById('filter-keyword')?.value.toLowerCase() || '';
-    const jenis = document.getElementById('filter-jenis')?.value || 'all';
+    
+    // Update elemen global (dashboard & ringkasan)
+    ui.renderDashboard(transactions);
+    ui.renderPeriodSummary(transactions);
+    ui.setupExport(transactions);
 
-    const filtered = transactions.filter(t => {
-        const noteMatch = t.catatan ? t.catatan.toLowerCase().includes(keyword) : true;
-        const categoryMatch = t.kategori.toLowerCase().includes(keyword);
-        const jenisMatch = jenis === 'all' || t.jenis === jenis;
+    // 🔹 Render selalu keduanya, biar sinkron tanpa reload
+    const mainKeyword = document.getElementById('filter-keyword')?.value.toLowerCase() || '';
+    const mainJenis = document.getElementById('filter-jenis')?.value || 'all';
+
+    const mainFiltered = transactions.filter(t => {
+        const noteMatch = t.catatan ? t.catatan.toLowerCase().includes(mainKeyword) : true;
+        const categoryMatch = t.kategori.toLowerCase().includes(mainKeyword);
+        const jenisMatch = mainJenis === 'all' || t.jenis === mainJenis;
         return (noteMatch || categoryMatch) && jenisMatch;
     });
 
-    ui.renderDashboard(transactions);
-    ui.renderPeriodSummary(transactions);
-    ui.renderTransactions(filtered);
+    // 🔹 Render kedua tampilan
+    ui.renderTransactions(mainFiltered);
     ui.renderHistory(transactions);
-    ui.setupExport(transactions);
 }
+
 
 function handleFormSubmit(event) {
     event.preventDefault();
-    
+
+    // Validasi melalui UI module (ada di ui.js)
     if (!ui.validateForm()) return;
 
-    const formData = new FormData(document.getElementById('transaction-form'));
+    const formEl = document.getElementById('transaction-form');
+    if (!formEl) return;
+
+    const formData = new FormData(formEl);
     const transactionData = Object.fromEntries(formData.entries());
-    transactionData.nominal = parseNominalInput(document.getElementById('nominal').value);
+
+    // Pastikan nominal menjadi number (utils.parseNominalInput harus mengembalikan number)
+    transactionData.nominal = parseNominalInput(document.getElementById('nominal')?.value) || 0;
+
+    // Trim fields yang bisa berisi whitespace
+    transactionData.kategori = (transactionData.kategori || '').trim();
+    transactionData.catatan = (transactionData.catatan || '').trim();
 
     if (transactionData.id) {
+        // Penting: konversi id ke Number agar tidak tersimpan sebagai string
+        transactionData.id = Number(transactionData.id);
         state.updateTransaction(transactionData);
-        showNotification('Transaksi berhasil diperbarui!');
+        showNotification('Transaksi berhasil diperbarui!', 'success');
     } else {
+        // Pastikan tidak ada field id saat menambah baru
+        delete transactionData.id;
         state.addTransaction(transactionData);
-        if (!state.loadCategories().includes(transactionData.kategori)) {
+
+        // Jika kategori baru, simpan kustom
+        const categories = state.loadCategories();
+        if (!categories.includes(transactionData.kategori) && transactionData.kategori) {
             state.saveCustomCategory(transactionData.kategori);
             ui.renderCategories();
         }
-        showNotification('Transaksi berhasil ditambahkan!');
+
+        showNotification('Transaksi berhasil ditambahkan!', 'success');
     }
-    
+
     ui.resetForm();
     refreshUI();
 }
 
+/**
+ * Menangani klik pada tombol Edit dan Hapus di dalam daftar transaksi.
+ * Ini adalah fungsi event handler yang akan digunakan oleh kedua view.
+ */
 function handleListClick(event) {
     const target = event.target;
     const item = target.closest('.transaction-item');
     if (!item) return;
 
-    const id = parseInt(item.dataset.id);
+    const idRaw = item.dataset.id;
+    if (!idRaw) return;
+
+    const id = parseInt(idRaw);
     if (isNaN(id)) return;
 
     if (target.classList.contains('edit-btn')) {
         const transaction = state.getTransactionById(id);
         if (transaction) {
             ui.populateForm(transaction);
-            scrollToForm(); // 🔥 SCROLL KE FORM
+            // UX: scroll to form after populate
+            scrollToForm();
         }
+        return;
     }
 
     if (target.classList.contains('delete-btn')) {
-        transactionIdToDelete = id;
+        // simpan id untuk dikonfirmasi
+        transactionIdToDelete = Number(id);
         ui.toggleModal('delete-modal', true);
     }
 }
 
-function setupBulkDelete(listId, selectAllBtnId, deleteSelectedBtnId, countSpanId) {
-    const list = document.getElementById(listId);
-    const selectAllBtn = document.getElementById(selectAllBtnId);
-    const deleteSelectedBtn = document.getElementById(deleteSelectedBtnId);
-    const countSpan = document.getElementById(countSpanId);
-
-    if (!list || !selectAllBtn || !deleteSelectedBtn || !countSpan) return;
-
-    list.addEventListener('change', (e) => {
-        if (e.target.classList.contains('delete-checkbox')) {
-            updateSelectionState();
-        }
-    });
-
-    selectAllBtn.addEventListener('click', () => {
-        const checkboxes = list.querySelectorAll('.delete-checkbox');
-        // Jika semua sudah tercentang, maka batalkan semua. Jika tidak, centang semua.
-        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-        checkboxes.forEach(cb => cb.checked = !allChecked);
-        updateSelectionState();
-    });
-
-    deleteSelectedBtn.addEventListener('click', () => {
-        const checked = list.querySelectorAll('.delete-checkbox:checked');
-        if (checked.length === 0) {
-            showNotification('Pilih transaksi yang ingin dihapus.', 'warning');
-            return;
-        }
-
-        if (confirm(`Anda yakin ingin menghapus ${checked.length} transaksi yang dipilih?`)) {
-            const idsToDelete = Array.from(checked).map(cb => parseInt(cb.dataset.id));
-            idsToDelete.forEach(id => state.deleteTransaction(id));
-            refreshUI();
-            showNotification(`${checked.length} transaksi berhasil dihapus.`, 'success');
-        }
-    });
-
-    function updateSelectionState() {
-        const checked = list.querySelectorAll('.delete-checkbox:checked');
-        const allCheckboxes = list.querySelectorAll('.delete-checkbox');
-        countSpan.textContent = `${checked.length} dipilih`;
-
-        if (checked.length > 0 && checked.length === allCheckboxes.length) {
-            selectAllBtn.textContent = 'Batal Pilih Semua';
-        } else {
-            selectAllBtn.textContent = 'Pilih Semua';
-        }
-    }
-    // Panggil sekali untuk inisialisasi
-    updateSelectionState();
-}
-
 function init() {
-    state.loadTransactions();
+    // load data awal
+    state.loadTransactions?.(); // safe-call jika ada
     ui.renderCategories();
     refreshUI();
     ui.resetForm();
     ui.switchView('main');
-    ui.renderUserGreeting(); // 🔥 RENDER NAMA USER
+    ui.renderUserGreeting();
 
-    initDarkMode(); // 🔥 INISIALISASI DARK MODE
+    initDarkMode();
 
     if (!sessionStorage.getItem('welcomeShown')) {
         setTimeout(() => {
@@ -208,25 +193,32 @@ function init() {
     const form = document.getElementById('transaction-form');
     if (form) form.addEventListener('submit', handleFormSubmit);
 
-    const transactionList = document.getElementById('transaction-list');
-    const historyList = document.getElementById('history-list');
-    if (transactionList) transactionList.addEventListener('click', handleListClick);
-    if (historyList) historyList.addEventListener('click', handleListClick);
-
     const cancelEditBtn = document.getElementById('cancel-edit-btn');
-    if (cancelEditBtn) cancelEditBtn.addEventListener('click', ui.resetForm);
+    if (cancelEditBtn) {
+        // Pastikan tidak submit form kalau tombol ini ditekan
+        cancelEditBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            ui.resetForm();
+        });
+    }
 
     const filterKeyword = document.getElementById('filter-keyword');
     const filterJenis = document.getElementById('filter-jenis');
     if (filterKeyword) filterKeyword.addEventListener('input', refreshUI);
     if (filterJenis) filterJenis.addEventListener('change', refreshUI);
 
+    // Modal cancel/confirm untuk delete (sesuai id di HTML)
     const modalCancelBtn = document.getElementById('modal-cancel-btn');
     const modalConfirmBtn = document.getElementById('modal-confirm-btn');
-    if (modalCancelBtn) modalCancelBtn.addEventListener('click', () => ui.toggleModal('delete-modal', false));
+    if (modalCancelBtn) modalCancelBtn.addEventListener('click', () => {
+        transactionIdToDelete = null;
+        ui.toggleModal('delete-modal', false);
+    });
     if (modalConfirmBtn) modalConfirmBtn.addEventListener('click', () => {
         if (transactionIdToDelete !== null) {
-            state.deleteTransaction(transactionIdToDelete);
+            // pastikan tipe id konsisten (number)
+            const idToDelete = Number(transactionIdToDelete);
+            state.deleteTransaction(idToDelete);
             transactionIdToDelete = null;
             ui.toggleModal('delete-modal', false);
             refreshUI();
@@ -270,14 +262,17 @@ function init() {
         }
     });
 
-    // 🔥 EVENT LISTENER BARU
+    // Pasang event delegation untuk list transaksi (Main & History)
+    const transactionList = document.getElementById('transaction-list');
+    const historyList = document.getElementById('history-list');
+    if (transactionList) transactionList.addEventListener('click', handleListClick);
+    if (historyList) historyList.addEventListener('click', handleListClick);
+
+    // Logout & Dark Mode
     document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
     document.getElementById('dark-mode-toggle')?.addEventListener('click', toggleDarkMode);
 
-    // Inisialisasi fitur hapus massal untuk kedua view
-    setupBulkDelete('transaction-list', 'select-all-main-btn', 'delete-selected-main-btn', 'selected-count-main');
-    setupBulkDelete('history-list', 'select-all-history-btn', 'delete-selected-history-btn', 'selected-count-history');
-
+    // Modal close on outside click
     document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
