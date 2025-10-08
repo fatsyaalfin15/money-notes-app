@@ -17,12 +17,10 @@ function getCurrentUserId() {
             return user.id;
         } catch (e) {
             console.error("Gagal mem-parsing data pengguna:", e);
-            // Jika gagal, arahkan ke halaman login untuk keamanan
             window.location.href = 'login.html';
             return null;
         }
     }
-    // Jika tidak ada user, arahkan ke login
     window.location.href = 'login.html';
     return null;
 }
@@ -35,8 +33,6 @@ function getCurrentUserId() {
 function getUserSpecificKey(baseKey) {
     const userId = getCurrentUserId();
     if (!userId) {
-        // Ini seharusnya tidak terjadi karena ada pengecekan di index.html,
-        // tapi sebagai pengaman tambahan.
         throw new Error("Tidak ada pengguna yang login. Tidak dapat mengakses data.");
     }
     return `money-notes-${baseKey}-${userId}`;
@@ -85,32 +81,51 @@ export function saveCustomCategory(category) {
     }
 }
 
+/**
+ * Mengembalikan semua transaksi yang ada di memori.
+ */
 export function getTransactions() {
     return transactions;
 }
 
+/**
+ * Mengambil satu transaksi berdasarkan ID.
+ */
 export function getTransactionById(id) {
-    return transactions.find(t => t.id === id);
+    id = Number(id);
+    return transactions.find(t => Number(t.id) === id);
 }
 
+/**
+ * Menambahkan transaksi baru.
+ */
 export function addTransaction(transactionData) {
     const newTransaction = {
         id: Date.now(),
-        ...transactionData
+        ...transactionData,
+        nominal: Number(transactionData.nominal)
     };
     transactions.unshift(newTransaction);
     saveTransactions();
 }
 
+/**
+ * Memperbarui transaksi yang sudah ada berdasarkan ID.
+ */
 export function updateTransaction(updatedData) {
-    const index = transactions.findIndex(t => t.id == updatedData.id);
+    const id = Number(updatedData.id);
+    const index = transactions.findIndex(t => Number(t.id) === id);
     if (index !== -1) {
-        transactions[index] = { ...transactions[index], ...updatedData };
+        transactions[index] = { ...transactions[index], ...updatedData, id };
         saveTransactions();
     }
 }
 
+/**
+ * Menghapus transaksi berdasarkan ID.
+ */
 export function deleteTransaction(id) {
-    transactions = transactions.filter(t => t.id !== id);
+    id = Number(id);
+    transactions = transactions.filter(t => Number(t.id) !== id);
     saveTransactions();
 }
