@@ -35,6 +35,9 @@ const elements = {
     addCategoryBtn: document.getElementById('add-category-btn')
 };
 
+// ======================
+// VALIDASI FORM
+// ======================
 export function validateField(field, value) {
     const errorElement = elements[`error${field.charAt(0).toUpperCase() + field.slice(1)}`];
     let error = null;
@@ -43,7 +46,6 @@ export function validateField(field, value) {
         if (!value) {
             error = "Tanggal wajib diisi";
         } else {
-            // Split string 'YYYY-MM-DD' untuk menghindari masalah timezone
             const parts = value.split('-');
             const inputDate = new Date(parts[0], parts[1] - 1, parts[2]);
             const today = new Date();
@@ -79,6 +81,9 @@ export function validateForm() {
     return isTanggalValid && isKategoriValid && isJenisValid && isNominalValid;
 }
 
+// ======================
+// RENDER DASHBOARD
+// ======================
 export function renderCategories() {
     const select = elements.kategori;
     if (!select) return;
@@ -102,6 +107,9 @@ export function renderDashboard(transactions) {
     if (elements.saldoAkhir) elements.saldoAkhir.textContent = formatCurrency(saldo);
 }
 
+// ======================
+// RINGKASAN PERIODE
+// ======================
 export function renderPeriodSummary(transactions) {
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -141,7 +149,11 @@ export function renderPeriodSummary(transactions) {
     }
 }
 
+// ======================
+// RENDER TRANSAKSI
+// ======================
 function createTransactionItemHTML(tx) {
+    const id = Number(tx.id);
     const type = tx.jenis;
     const sign = type === 'pemasukan' ? '+' : '-';
     const date = new Date(tx.tanggal);
@@ -152,12 +164,11 @@ function createTransactionItemHTML(tx) {
     });
 
     return `
-        <div class="transaction-item ${type}" data-id="${tx.id}">
-            <input type="checkbox" class="delete-checkbox" data-id="${tx.id}">
+        <div class="transaction-item ${type}" data-id="${id}">
             <div class="transaction-details">
                 <p data-category="${tx.kategori}">${tx.kategori}</p>
                 <small>${formattedDate}</small>
-                <small class="catatan">${tx.catatan || ''}</small>
+                <small class="catatan">${tx.catatan || 'Catatan Kosong'}</small>
             </div>
             <div class="transaction-actions">
                 <p class="nominal ${type}">${sign} ${formatCurrency(tx.nominal)}</p>
@@ -175,10 +186,8 @@ export function renderTransactions(transactions) {
     if (elements.transactionList) {
         elements.transactionList.innerHTML = hasTransactions 
             ? transactions.map(createTransactionItemHTML).join('')
-            : '<p style="text-align: center; color: var(--text-light); padding: 1.5rem;">Belum ada transaksi.</p>';
+            : '<p style="text-align:center;color:var(--text-light);padding:1.5rem;">Belum ada transaksi.</p>';
     }
-    const bulkActions = document.getElementById('bulk-actions-main');
-    if (bulkActions) bulkActions.style.display = hasTransactions ? 'flex' : 'none';
 }
 
 export function renderHistory(transactions) {
@@ -194,7 +203,7 @@ export function renderHistory(transactions) {
     const hasTransactions = sortedDates.length > 0;
     if (elements.historyList) {
         if (!hasTransactions) {
-            elements.historyList.innerHTML = '<p style="text-align: center; color: var(--text-light); padding: 1.5rem;">Belum ada riwayat transaksi.</p>';
+            elements.historyList.innerHTML = '<p style="text-align:center;color:var(--text-light);padding:1.5rem;">Belum ada riwayat transaksi.</p>';
         } else {
             let html = '';
             for (const date of sortedDates) {
@@ -212,70 +221,98 @@ export function renderHistory(transactions) {
             elements.historyList.innerHTML = html;
         }
     }
-    const bulkActions = document.getElementById('bulk-actions-history');
-    if (bulkActions) bulkActions.style.display = hasTransactions ? 'flex' : 'none';
 }
 
+// ======================
+// FORM HANDLER
+// ======================
 export function populateForm(transaction) {
-    if (!elements.form) return;
-    elements.form.id.value = transaction.id;
-    elements.tanggal.value = transaction.tanggal;
-    elements.kategori.value = transaction.kategori;
-    elements.jenis.value = transaction.jenis;
-    elements.nominal.value = formatNumberInput(transaction.nominal.toString());
-    elements.catatan.value = transaction.catatan || '';
+    const form = document.getElementById('transaction-form');
+    const formTitle = document.getElementById('form-title');
+    const cancelEditBtn = document.getElementById('cancel-edit-btn');
+    const submitBtn = document.getElementById('submit-btn');
     
-    elements.formTitle.textContent = 'Edit Transaksi';
-    elements.submitBtn.textContent = 'Update Transaksi';
-    elements.cancelEditBtn.style.display = 'inline-block';
+    if (!form) return;
+
+    form.querySelector('#transaction-id').value = transaction.id;
+    form.querySelector('#tanggal').value = transaction.tanggal;
+    form.querySelector('#kategori').value = transaction.kategori;
+    form.querySelector('#jenis').value = transaction.jenis;
+    form.querySelector('#nominal').value = formatNumberInput(transaction.nominal.toString());
+    form.querySelector('#catatan').value = transaction.catatan || '';
+    
+    if (formTitle) formTitle.textContent = 'Edit Transaksi';
+    if (submitBtn) submitBtn.textContent = 'Update Transaksi';
+    if (cancelEditBtn) cancelEditBtn.style.display = 'inline-block';
+
     switchView('main');
-    
-    // Scroll ke formulir agar langsung terlihat oleh pengguna
-    const formContainer = document.querySelector('.form-container');
-    if (formContainer) formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 export function resetForm() {
-    if (!elements.form) return;
-    elements.form.reset();
-    elements.form.id.value = '';
-    elements.formTitle.textContent = 'Tambah Transaksi Baru';
-    elements.submitBtn.textContent = 'Simpan Transaksi';
-    elements.cancelEditBtn.style.display = 'none';
-    
-    const today = new Date();
-    elements.tanggal.valueAsDate = today;
-    
-    ['Tanggal', 'Kategori', 'Jenis', 'Nominal'].forEach(field => {
-        const el = elements[`error${field}`];
-        if (el) el.textContent = '';
-        const input = elements[field.toLowerCase()];
-        if (input && input.classList) input.classList.remove('invalid');
+    const form = document.getElementById('transaction-form');
+    if (!form) return;
+    form.reset();
+
+    const txIdInput = document.getElementById('transaction-id');
+    if (txIdInput) txIdInput.value = '';
+
+    const formTitle = document.getElementById('form-title');
+    const submitBtn = document.getElementById('submit-btn');
+    const cancelEditBtn = document.getElementById('cancel-edit-btn');
+
+    if (formTitle) formTitle.textContent = 'Tambah Transaksi Baru';
+    if (submitBtn) submitBtn.textContent = 'Simpan Transaksi';
+    if (cancelEditBtn) cancelEditBtn.style.display = 'none';
+
+    const tanggalEl = document.getElementById('tanggal');
+    if (tanggalEl) tanggalEl.valueAsDate = new Date();
+
+    ['tanggal','kategori','jenis','nominal'].forEach(name => {
+        const errEl = document.getElementById(`error-${name}`);
+        if (errEl) errEl.textContent = '';
+        const inputEl = document.getElementById(name);
+        if (inputEl && inputEl.classList) inputEl.classList.remove('invalid');
     });
 }
 
-if (elements.nominal) {
-    elements.nominal.addEventListener('input', function(e) {
-        const cursor = e.target.selectionStart;
-        const value = e.target.value;
-        const formatted = formatNumberInput(value);
-        e.target.value = formatted;
-        setTimeout(() => {
-            e.target.selectionStart = e.target.selectionEnd = cursor + (formatted.length - value.length);
-        }, 0);
-    });
+// ======================
+// MODAL KONFIRMASI HAPUS
+// ======================
+export function showDeleteModal(transactionId, confirmCallback) {
+    const modal = document.getElementById('delete-modal');
+    const confirmBtn = document.getElementById('confirm-delete');
+    const cancelBtn = document.getElementById('cancel-delete');
+
+    if (!modal || !confirmBtn || !cancelBtn) return;
+
+    modal.style.display = 'flex';
+
+    const onConfirm = () => {
+        confirmCallback(transactionId);
+        closeModal();
+    };
+
+    const closeModal = () => {
+        modal.style.display = 'none';
+        confirmBtn.removeEventListener('click', onConfirm);
+        cancelBtn.removeEventListener('click', closeModal);
+    };
+
+    confirmBtn.addEventListener('click', onConfirm);
+    cancelBtn.addEventListener('click', closeModal);
 }
 
-if (elements.tanggal) elements.tanggal.addEventListener('blur', () => validateField('tanggal', elements.tanggal.value));
-if (elements.kategori) elements.kategori.addEventListener('blur', () => validateField('kategori', elements.kategori.value));
-if (elements.jenis) elements.jenis.addEventListener('blur', () => validateField('jenis', elements.jenis.value));
-if (elements.nominal) elements.nominal.addEventListener('blur', () => validateField('nominal', elements.nominal.value));
+// ======================
+// LAINNYA
+// ======================
+export function closeAllModals() {
+    document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+}
 
 export function toggleModal(modalId, show) {
     const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.style.display = show ? 'flex' : 'none';
-    }
+    if (modal) modal.style.display = show ? 'flex' : 'none';
 }
 
 export function switchView(viewName) {
@@ -301,9 +338,6 @@ export function setupExport(transactions) {
     }
 }
 
-// ... semua kode ui.js sebelumnya ...
-
-// 🔥 TAMBAHKAN INI DI AKHIR FILE
 export function renderUserGreeting() {
     const userJson = localStorage.getItem('money-notes-current-user');
     const greetingEl = document.getElementById('user-greeting');
